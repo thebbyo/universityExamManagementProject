@@ -1,3 +1,6 @@
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -112,18 +115,18 @@ class Student{
             System.out.println("final marks should be <= 70");
             return;
         }
-            for (Course course : courses) {
-                if (course.getCourse().equals(courseName) && totalMarks(courseName) < finalMarks) {
-                    if (course.getExamDate() == null || examDate.after(course.getExamDate())) {
-                        course.setFinalExamMarks(finalMarks);
-                        totalMarks(courseName);
-                        canGiveimprovement(courseName);
-                        course.setExamDate(examDate);
-                    } else {
-                        System.out.println("Improvement exam date should be after the previous exam date.");
-                    }
+        for (Course course : courses) {
+            if (course.getCourse().equals(courseName) && totalMarks(courseName) < finalMarks) {
+                if (course.getExamDate() == null || examDate.after(course.getExamDate())) {
+                    course.setFinalExamMarks(finalMarks);
+                    totalMarks(courseName);
+                    canGiveimprovement(courseName);
+                    course.setExamDate(examDate);
+                } else {
+                    System.out.println("Improvement exam date should be after the previous exam date.");
                 }
             }
+        }
 
     }
     void giveRetake(String courseName, double incourseMarks, double finalMarks, Date examDate){
@@ -141,15 +144,15 @@ class Student{
             if(course.getCourse().equals(courseName)){
                 if(course.getExamDate() == null || examDate.after(course.getExamDate()))
                     course.setFinalExamMarks(finalMarks);
-                    course.setInCourseMarks(incourseMarks);
-                    totalMarks(courseName);
-                    if(isFailed(courseName)){
-                        System.out.println("you failed again");
-                        return;
-                    }
+                course.setInCourseMarks(incourseMarks);
+                totalMarks(courseName);
+                if(isFailed(courseName)){
+                    System.out.println("you failed again");
+                    return;
+                }
                 System.out.println("you have passed");
-                    canGiveimprovement(courseName);
-                    course.setExamDate(examDate);
+                canGiveimprovement(courseName);
+                course.setExamDate(examDate);
 
             }
             else System.out.println("Improvement exam date should be after the previous exam date.");
@@ -160,19 +163,16 @@ class Student{
 
 public class Main {
     public static void main(String[] args) throws ParseException {
-        Student student = new Student("2020315638", "Dibbyo Roy");
-        SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
-        Date examDate = dateFormat.parse("23-05-2023");
-        student.addCourse(new Course("Math", 10, 2, examDate));
-        System.out.println(student.canGiveimprovement("Math"));
-        System.out.println(student.isFailed("Math"));
-        examDate = dateFormat.parse("24-05-2023");
-        student.giveRetake("Math", 21,20, examDate);
-        System.out.println(student.totalMarks("Math"));
-        System.out.println(student.isFailed("Math"));
-        System.out.println(student.canGiveimprovement("Math"));
-//        System.out.println(student.totalMarks("Math"));
-//        System.out.println(student.canGiveimprovement("Math"));
-
+        String url = "jdbc:mysql://10.33.4.30/db2020315638";
+        String userName = "s2020315638";
+        String password = "iam4yearsolddbms";
+        try {
+            Connection connection = DriverManager.getConnection(url, userName, password);
+            System.out.printf("database connected");
+        }
+        catch (SQLException e){
+            System.out.printf("Failed");
+            e.printStackTrace();
+        }
     }
 }
