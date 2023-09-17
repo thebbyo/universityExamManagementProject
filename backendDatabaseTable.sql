@@ -16,6 +16,7 @@ create table exams(
   totalMarks double,
   isRetake boolean default false,
   isImprovement boolean default false,
+  examDate date not null,
   foreign key(studentID) references students(studentID),
   foreign key(courseID) references courses(courseID)
 );
