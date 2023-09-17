@@ -1,17 +1,11 @@
-import com.mysql.cj.util.DnsSrv;
-
-import javax.swing.*;
-import java.awt.*;
 import java.sql.*;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.List;
 import java.util.Scanner;
 
 
-public class Main {
+public class _28_DiponkerRoy {
 
     void addCources(String url, String userName, String password){
         Scanner sc = new Scanner(System.in);
@@ -118,19 +112,19 @@ public class Main {
                 System.out.print("Enter studentID : ");
                 int studentID = sc.nextInt();
                 System.out.print("Enter courseID :");
-                      int  courseID = sc.nextInt();
+                int  courseID = sc.nextInt();
                 System.out.print("Enter incourseMarks : ");
-                       int incourseMarks = sc.nextInt();
-                       if(incourseMarks > 30) {
-                           System.out.println("incourse marks have to <=30");
-                           incourseMarks = sc.nextInt();
-                       }
+                int incourseMarks = sc.nextInt();
+                if(incourseMarks > 30) {
+                    System.out.println("incourse marks have to <=30");
+                    incourseMarks = sc.nextInt();
+                }
                 System.out.print("Enter finalMarks : ");
-                       int finalMarks = sc.nextInt();
-                       if(finalMarks > 70){
-                           System.out.println("final marks have to <=70");
-                           finalMarks = sc.nextInt();
-                       }
+                int finalMarks = sc.nextInt();
+                if(finalMarks > 70){
+                    System.out.println("final marks have to <=70");
+                    finalMarks = sc.nextInt();
+                }
                 String insertSQL = "INSERT INTO exams (examID, studentID, courseID, incourseMarks, finalMarks, totalMarks,isRetake, isImprovement, examDate) VALUES (?, ?,?,?,?,?,?,?,?)";
                 PreparedStatement preparedStatement = connection.prepareStatement(insertSQL);
                 preparedStatement.setInt(1, i);
@@ -233,8 +227,233 @@ public class Main {
             e.printStackTrace();
         }
     }
-    void giveRetake(String url, String userName, String password){
+    boolean isFailed(String url, String userName, String password, int studentID, int courseID){
+        boolean isfailed = false;
+        try {
+            Connection connection = DriverManager.getConnection(url, userName, password);
+            System.out.printf("database connected");
+            Statement statement = connection.createStatement();
+            String SQL = "select isRetake"+
+                          " from exams "+
+                          "where studentID = "+studentID+
+                          " and courseID = "+ courseID;
+            ResultSet resultSet = statement.executeQuery(SQL);
+            while (resultSet.next()){
+                isfailed = resultSet.getBoolean("isRetake");
+            }
+            connection.close();
+            resultSet.close();
+            statement.close();
+
+        }
+        catch (SQLException e){
+            System.out.printf("Connection failed");
+            e.printStackTrace();
+        }
+        return isfailed;
+    }
+    void giveRetake(String url, String userName, String password) {
         Scanner sc = new Scanner(System.in);
+        System.out.print("Enter student id: ");
+        int studentID = sc.nextInt();
+        System.out.print("Enter course id: ");
+        int courseID = sc.nextInt();
+
+        if (!isFailed(url, userName, password, studentID, courseID)) {
+            System.out.println("Can't give retake");
+            return;
+        }
+
+        try {
+            Connection connection = DriverManager.getConnection(url, userName, password);
+            System.out.println("Database connected");
+            String qq = "SELECT totalMarks, examDate FROM exams WHERE studentID = ? AND courseID = ?";
+
+            PreparedStatement selectStatement = connection.prepareStatement(qq);
+            selectStatement.setInt(1, studentID);
+            selectStatement.setInt(2, courseID);
+
+            ResultSet resultSet = selectStatement.executeQuery();
+            int prevTotalMarks = 0;
+            Date prevDate = null;
+
+            while (resultSet.next()) {
+                prevTotalMarks = resultSet.getInt("totalMarks");
+                prevDate = resultSet.getDate("examDate");
+            }
+
+            resultSet.close();
+            System.out.print("Enter incourseMarks: ");
+            int incourseMarks = sc.nextInt();
+
+            if (incourseMarks > 30) {
+                System.out.println("incourse marks have to be <= 30");
+                incourseMarks = sc.nextInt();
+            }
+
+            System.out.print("Enter finalMarks: ");
+            int finalMarks = sc.nextInt();
+
+            if (finalMarks > 70) {
+                System.out.println("final marks have to be <= 70");
+                finalMarks = sc.nextInt();
+            }
+
+            sc.nextLine();
+            System.out.print("Enter examDate (yyyy-MM-dd): ");
+            String examDateStr = sc.nextLine();
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+            Date examDate = dateFormat.parse(examDateStr);
+
+            if (prevTotalMarks > incourseMarks + finalMarks || (incourseMarks + finalMarks < 40 && examDate.before(prevDate))) {
+                System.out.println("You have failed again or check the date again");
+                connection.close();
+                selectStatement.close();
+                return;
+            }
+
+            int totalMarks = incourseMarks + finalMarks;
+            qq = "UPDATE exams " +
+                    "SET incourseMarks = ?, finalMarks = ?, totalMarks = ?, isRetake = ?, isImprovement = ?, examDate = ? " +
+                    "WHERE studentID = ? AND courseID = ?";
+
+            PreparedStatement updateStatement = connection.prepareStatement(qq);
+            updateStatement.setInt(1, incourseMarks);
+            updateStatement.setInt(2, finalMarks);
+            updateStatement.setInt(3, totalMarks);
+            updateStatement.setBoolean(4, false); // Set isRetake to false
+            updateStatement.setBoolean(5, totalMarks >= 40 && totalMarks < 80); // Set isImprovement
+            updateStatement.setDate(6, new java.sql.Date(examDate.getTime()));
+            updateStatement.setInt(7, studentID);
+            updateStatement.setInt(8, courseID);
+
+            int rowsAffected = updateStatement.executeUpdate();
+            if (rowsAffected > 0) {
+                System.out.println("Data updated successfully.");
+            } else {
+                System.out.println("Data update failed.");
+            }
+
+            connection.close();
+            selectStatement.close();
+            updateStatement.close();
+
+        } catch (ParseException e) {
+            throw new RuntimeException(e);
+        } catch (SQLException e) {
+            System.out.println("Connection failed");
+            e.printStackTrace();
+        }
+    }
+    boolean isImprovement(String url, String userName, String password, int studentID, int courseID){
+        boolean isfailed = false;
+        try {
+            Connection connection = DriverManager.getConnection(url, userName, password);
+            System.out.printf("database connected");
+            Statement statement = connection.createStatement();
+            String SQL = "select isImprovement"+
+                    " from exams "+
+                    "where studentID = "+studentID+
+                    " and courseID = "+ courseID;
+            ResultSet resultSet = statement.executeQuery(SQL);
+            while (resultSet.next()){
+                isfailed = resultSet.getBoolean("isImprovement");
+            }
+            connection.close();
+            resultSet.close();
+            statement.close();
+
+        }
+        catch (SQLException e){
+            System.out.printf("Connection failed");
+            e.printStackTrace();
+        }
+        return isfailed;
+    }
+    void giveImprovement(String url, String userName, String password) {
+        Scanner sc = new Scanner(System.in);
+        System.out.print("Enter student id: ");
+        int studentID = sc.nextInt();
+        System.out.print("Enter course id: ");
+        int courseID = sc.nextInt();
+
+        if (!isImprovement(url, userName, password, studentID, courseID)) {
+            System.out.println("Can't give improvement");
+            return;
+        }
+
+        try {
+            Connection connection = DriverManager.getConnection(url, userName, password);
+            System.out.println("Database connected");
+            String qq = "SELECT incourseMarks,totalMarks, examDate FROM exams WHERE studentID = ? AND courseID = ?";
+
+            PreparedStatement selectStatement = connection.prepareStatement(qq);
+            selectStatement.setInt(1, studentID);
+            selectStatement.setInt(2, courseID);
+
+            ResultSet resultSet = selectStatement.executeQuery();
+            int prevTotalMarks = 0;
+            Date prevDate = null;
+            int prevIncourseMarks = 0;
+            while (resultSet.next()) {
+                prevIncourseMarks = resultSet.getInt("incourseMarks");
+                prevTotalMarks = resultSet.getInt("totalMarks");
+                prevDate = resultSet.getDate("examDate");
+            }
+
+            resultSet.close();
+
+
+            System.out.print("Enter finalMarks: ");
+            int finalMarks = sc.nextInt();
+
+            if (finalMarks > 70) {
+                System.out.println("final marks have to be <= 70");
+                finalMarks = sc.nextInt();
+            }
+
+            sc.nextLine();
+            System.out.print("Enter examDate (yyyy-MM-dd): ");
+            String examDateStr = sc.nextLine();
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+            Date examDate = dateFormat.parse(examDateStr);
+
+            if (prevTotalMarks > finalMarks  && examDate.before(prevDate)) {
+                System.out.println("You have not improved or check the date");
+                connection.close();
+                selectStatement.close();
+                return;
+            }
+
+            qq = "UPDATE exams " +
+                    "SET finalMarks = ?, totalMarks = ?,  isImprovement = ?, examDate = ? " +
+                    "WHERE studentID = ? AND courseID = ?";
+
+            PreparedStatement updateStatement = connection.prepareStatement(qq);
+            updateStatement.setInt(1, finalMarks);
+            updateStatement.setInt(2, finalMarks+prevIncourseMarks);
+            updateStatement.setBoolean(3, finalMarks +prevIncourseMarks< 80); // Set isImprovement
+            updateStatement.setDate(4, new java.sql.Date(examDate.getTime()));
+            updateStatement.setInt(5, studentID);
+            updateStatement.setInt(6, courseID);
+
+            int rowsAffected = updateStatement.executeUpdate();
+            if (rowsAffected > 0) {
+                System.out.println("Data updated successfully.");
+            } else {
+                System.out.println("Data update failed.");
+            }
+
+            connection.close();
+            selectStatement.close();
+            updateStatement.close();
+
+        } catch (ParseException e) {
+            throw new RuntimeException(e);
+        } catch (SQLException e) {
+            System.out.println("Connection failed");
+            e.printStackTrace();
+        }
     }
 
     public static void main(String[] args) {
@@ -243,10 +462,14 @@ public class Main {
         String url = "jdbc:mysql://10.33.4.30/db2020315638";
         String userName = "s2020315638";
         String password = "iam4yearsolddbms";
-        System.out.print("press 1 for add students , 2 for add course, 3 for add exams , 4 for check retake, 5 for check improvement : ");
-
-
-        Main main = new Main();
+        System.out.println("press 1 for add student");
+        System.out.println("press 2 for add course");
+        System.out.println("press 3 for add exam");
+        System.out.println("press 4 for check retake");
+        System.out.println("press 5 for check improvement");
+        System.out.println("press 6 for give retake");
+        System.out.println("press 7 for give improvement");
+        _28_DiponkerRoy main = new _28_DiponkerRoy();
 
         int choice = sc.nextInt();
         switch (choice){
@@ -264,6 +487,12 @@ public class Main {
                 break;
             case 5:
                 main.checkImprovement(url, userName, password);
+                break;
+            case 6:
+                main.giveRetake(url,userName, password);
+                break;
+            case 7:
+                main.giveImprovement(url, userName, password);
                 break;
             default:
                 System.out.println("Invalid Choice");
